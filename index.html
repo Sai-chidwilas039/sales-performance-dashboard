@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bistro OS - table ordering</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--page:#F4F5F1;--card:#fff;--ink:#14332D;--muted:#5B6B65;--line:#C9D1CB;--green:#17423A;--tomato:#C93A25}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+h1,h2,b{font-family:"Bricolage Grotesque",system-ui,sans-serif}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--tomato);outline-offset:2px}
+header.top{background:var(--green);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:.8rem 1.25rem;flex-wrap:wrap;gap:.5rem}
+header.top h1{margin:0;font-size:1.4rem}
+nav button{background:none;border:0;color:#cfe0da;padding:.5rem .9rem;border-bottom:3px solid transparent}
+nav button[aria-selected=true]{color:#fff;border-color:#fff}
+main{max-width:1040px;margin:0 auto;padding:1.25rem}
+.order{display:grid;grid-template-columns:1fr 330px;gap:2rem;align-items:start}
+@media(max-width:860px){.order{grid-template-columns:1fr}}
+#menu h2{font-size:1.25rem;margin:1.5rem 0 .25rem}#menu section:first-child h2{margin-top:0}
+.item{display:flex;gap:1rem;align-items:flex-start;padding:.7rem 0;border-bottom:1px solid var(--line)}
+.info{flex:1}.line{display:flex;align-items:baseline;gap:.5rem}
+.dots{flex:1;border-bottom:2px dotted var(--line)}
+.info p{margin:.15rem 0 0;color:var(--muted);font-size:.9rem}
+.add{border:1.5px solid var(--green);background:none;color:var(--green);border-radius:6px;padding:.3rem .9rem;font-weight:600}
+.add:hover{background:var(--green);color:#fff}
+.ticket{position:sticky;top:1rem;background:var(--card);border:1px solid var(--line);border-top:6px double var(--green);padding:1rem 1.1rem}
+.ticket h2{margin:0 0 .5rem;font-size:1.2rem}
+#lines{list-style:none;margin:0;padding:0}
+#lines li{display:grid;grid-template-columns:1fr auto auto;gap:.6rem;align-items:center;padding:.35rem 0;border-bottom:1px dashed var(--line)}
+.qty button{width:1.7rem;height:1.7rem;border:1px solid var(--line);background:#fff;border-radius:50%}
+.qty{white-space:nowrap}
+.empty{display:block!important;color:var(--muted)}
+.sums{margin:.7rem 0;display:grid;grid-template-columns:1fr auto;row-gap:.2rem}
+.sums .tot{font-weight:700;font-size:1.1rem;border-top:2px solid var(--ink);padding-top:.3rem;margin-top:.2rem}
+label{display:block;font-size:.85rem;color:var(--muted);margin-top:.6rem}
+input,select{width:100%;padding:.5rem;border:1px solid var(--line);border-radius:6px;font:inherit;background:#fff}
+#place{width:100%;margin-top:1rem;background:var(--tomato);color:#fff;border:0;border-radius:6px;padding:.7rem;font-weight:700}
+#place:disabled{background:var(--line);cursor:not-allowed}
+#status{margin-top:1rem;padding:.8rem;background:#e7efe9;border-radius:6px}
+.steps{list-style:none;display:flex;gap:.25rem;padding:0;margin:.5rem 0 0;font-size:.8rem}
+.steps li{flex:1;text-align:center;padding:.25rem 0;border-top:4px solid var(--line);color:var(--muted)}
+.steps li.on{border-color:var(--green);color:var(--ink);font-weight:600}
+.kitchen-head{display:flex;justify-content:space-between;align-items:center}
+.kitchen-head button{background:none;border:1px solid var(--line);border-radius:6px;padding:.3rem .8rem}
+#board{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+@media(max-width:760px){#board{grid-template-columns:1fr}}
+.col h2{font-size:1.1rem}.count{background:var(--green);color:#fff;border-radius:99px;padding:0 .55rem;font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--line);padding:.8rem;margin-bottom:.7rem;border-radius:6px}
+.card ul{margin:.4rem 0 .7rem;padding-left:1.1rem}
+.card button{width:100%;background:var(--green);color:#fff;border:0;border-radius:6px;padding:.45rem}
+.none{color:var(--muted)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Bistro OS</h1>
+  <nav role="tablist">
+    <button role="tab" aria-selected="true" data-tab="order">Order</button>
+    <button role="tab" aria-selected="false" data-tab="kitchen">Kitchen</button>
+  </nav>
+</header>
+<main>
+  <div id="view-order" class="order">
+    <div id="menu"></div>
+    <form class="ticket" id="form">
+      <h2>Your ticket</h2>
+      <ul id="lines"></ul>
+      <div class="sums">
+        <span>Subtotal</span><span id="sub"></span>
+        <span>Tax (5%)</span><span id="tax"></span>
+        <span class="tot">Total</span><span class="tot" id="total"></span>
+      </div>
+      <label for="table">Table number</label>
+      <select id="table" required><option value="">Choose a table</option></select>
+      <label for="name">Name (optional)</label>
+      <input id="name" maxlength="30" autocomplete="off">
+      <button id="place" type="submit">Place order</button>
+      <div id="status" hidden aria-live="polite"></div>
+    </form>
+  </div>
+  <div id="view-kitchen" hidden>
+    <div class="kitchen-head"><h2>Kitchen board</h2><button data-reset>Clear all orders</button></div>
+    <div id="board"></div>
+  </div>
+</main>
+<script>
+// ---- Data ----
+const MENU = [
+  {id:1, sec:"Starters", name:"Tomato basil soup", desc:"Roasted tomato, basil oil, toasted bread", price:180},
+  {id:2, sec:"Starters", name:"Crispy corn", desc:"Tossed with pepper and spring onion", price:220},
+  {id:3, sec:"Starters", name:"Paneer tikka", desc:"Charred skewers with mint chutney", price:260},
+  {id:4, sec:"Mains", name:"Butter chicken", desc:"Slow-cooked gravy, served with butter naan", price:380},
+  {id:5, sec:"Mains", name:"Veg biryani", desc:"Basmati rice, seasonal vegetables, raita", price:320},
+  {id:6, sec:"Mains", name:"Mushroom risotto", desc:"Arborio rice, parmesan, thyme", price:350},
+  {id:7, sec:"Mains", name:"Lemon butter fish", desc:"Grilled fillet, garlic greens", price:420},
+  {id:8, sec:"Desserts", name:"Gulab jamun", desc:"Three pieces, warm", price:140},
+  {id:9, sec:"Desserts", name:"Chocolate brownie", desc:"Served with vanilla ice cream", price:180},
+  {id:10, sec:"Drinks", name:"Masala chai", desc:"Ginger and cardamom", price:60},
+  {id:11, sec:"Drinks", name:"Cold coffee", desc:"Blended with milk and ice", price:130},
+  {id:12, sec:"Drinks", name:"Fresh lime soda", desc:"Sweet, salted or mixed", price:90}
+];
+const TAX = 0.05, TABLES = 12;
+const STEPS = ["New", "Preparing", "Ready", "Served"];
+const NEXT = {New:"Start preparing", Preparing:"Mark ready", Ready:"Mark served"};
+
+// ---- Helpers ----
+const $ = s => document.querySelector(s);
+const inr = n => "\u20B9" + n.toLocaleString("en-IN");
+const esc = s => s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let cart = {}, lastId = null, memory = [];
+const load = () => { try { return JSON.parse(localStorage.getItem("bistroos.orders")) || []; } catch (e) { return memory; } };
+const save = o => { memory = o; try { localStorage.setItem("bistroos.orders", JSON.stringify(o)); } catch (e) {} };
+
+// ---- Customer view ----
+function renderMenu() {
+  const sections = [...new Set(MENU.map(m => m.sec))];
+  $("#menu").innerHTML = sections.map(s => `<section><h2>${s}</h2>` +
+    MENU.filter(m => m.sec === s).map(m => `
+      <div class="item"><div class="info">
+        <div class="line"><b>${m.name}</b><i class="dots"></i><span>${inr(m.price)}</span></div>
+        <p>${m.desc}</p></div>
+        <button class="add" data-add="${m.id}" aria-label="Add ${m.name} to ticket">Add</button></div>`).join("") +
+    `</section>`).join("");
+  $("#table").insertAdjacentHTML("beforeend",
+    Array.from({length: TABLES}, (_, i) => `<option>${i + 1}</option>`).join(""));
+}
+
+function renderTicket() {
+  const lines = Object.entries(cart).map(([id, q]) => ({m: MENU.find(x => x.id == id), q}));
+  const sub = lines.reduce((a, l) => a + l.m.price * l.q, 0), tax = Math.round(sub * TAX);
+  $("#lines").innerHTML = lines.length ? lines.map(l => `<li><span>${l.m.name}</span>
+      <span class="qty"><button type="button" data-dec="${l.m.id}" aria-label="Remove one ${l.m.name}">-</button> ${l.q}
+      <button type="button" data-inc="${l.m.id}" aria-label="Add one ${l.m.name}">+</button></span>
+      <span>${inr(l.m.price * l.q)}</span></li>`).join("")
+    : `<li class="empty">Your ticket is empty. Add a dish from the menu.</li>`;
+  $("#sub").textContent = inr(sub); $("#tax").textContent = inr(tax); $("#total").textContent = inr(sub + tax);
+  $("#place").disabled = !lines.length;
+}
+
+function renderStatus() {
+  const o = load().find(x => x.id === lastId), box = $("#status");
+  box.hidden = !o;
+  if (!o) return;
+  box.innerHTML = `<b>Order #${o.id} for table ${esc(o.table)}</b><ol class="steps">` +
+    STEPS.map((s, i) => `<li class="${i <= STEPS.indexOf(o.status) ? "on" : ""}">${s}</li>`).join("") + `</ol>`;
+}
+
+function placeOrder(e) {
+  e.preventDefault();
+  const items = Object.entries(cart).map(([id, q]) => {
+    const m = MENU.find(x => x.id == id); return {name: m.name, qty: q, price: m.price};
+  });
+  const sub = items.reduce((a, i) => a + i.price * i.qty, 0);
+  const orders = load(), id = orders.reduce((a, o) => Math.max(a, o.id), 100) + 1;
+  orders.push({id, table: $("#table").value, name: $("#name").value.trim(), items,
+               total: sub + Math.round(sub * TAX), status: "New", at: Date.now()});
+  save(orders); lastId = id; cart = {}; e.target.reset(); renderAll();
+}
+
+// ---- Kitchen view ----
+function renderKitchen() {
+  const orders = load();
+  $("#board").innerHTML = STEPS.slice(0, 3).map(s => {
+    const list = orders.filter(o => o.status === s);
+    return `<section class="col"><h2>${s} <span class="count">${list.length}</span></h2>` +
+      (list.map(o => `<article class="card"><b>#${o.id}</b> Table ${esc(o.table)}${o.name ? ", " + esc(o.name) : ""}
+        <ul>${o.items.map(i => `<li>${i.qty} x ${esc(i.name)}</li>`).join("")}</ul>
+        <button data-adv="${o.id}">${NEXT[s]}</button></article>`).join("") || `<p class="none">Nothing here.</p>`) +
+      `</section>`;
+  }).join("");
+}
+
+// ---- Wiring ----
+function renderAll() { renderTicket(); renderStatus(); renderKitchen(); }
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-add],[data-inc],[data-dec],[data-adv],[data-tab],[data-reset]");
+  if (!t) return;
+  const d = t.dataset;
+  if (d.add || d.inc) cart[d.add || d.inc] = (cart[d.add || d.inc] || 0) + 1;
+  if (d.dec && --cart[d.dec] <= 0) delete cart[d.dec];
+  if (d.adv) { const o = load(), x = o.find(y => y.id == d.adv); x.status = STEPS[STEPS.indexOf(x.status) + 1]; save(o); }
+  if (d.reset !== undefined && confirm("Clear all orders?")) { save([]); lastId = null; }
+  if (d.tab) {
+    document.querySelectorAll("[data-tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === d.tab));
+    $("#view-order").hidden = d.tab !== "order"; $("#view-kitchen").hidden = d.tab !== "kitchen";
+  }
+  renderAll();
+});
+$("#form").addEventListener("submit", placeOrder);
+window.addEventListener("storage", renderAll);  // keeps a second tab (kitchen) in sync
+renderMenu(); renderAll();
+</script>
+</body>
+</html>
